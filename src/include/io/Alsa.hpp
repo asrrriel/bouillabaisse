@@ -84,7 +84,8 @@ public:
 
     std::string get_dev_string() const {
         char buf[32];
-        snprintf(buf, sizeof(buf), "hw:%d:%d", card_number, device_number);
+        // snprintf(buf, sizeof(buf), "hw:%d,%d", card_number, device_number);
+        snprintf(buf, sizeof(buf), "pulse", card_number, device_number);
         return buf;
     }
 };
@@ -94,7 +95,7 @@ class InputAudioDevice : public AudioDevice {
 public:
     using AudioDevice::AudioDevice;
 
-    int open_stream(snd_pcm_t **handle, unsigned int sampleRate = 44100,
+    int open_stream(snd_pcm_t **handle, unsigned int sampleRate = 48000,
                     unsigned int channels   = 2,
                     snd_pcm_format_t format = SND_PCM_FORMAT_S16_LE);
 };

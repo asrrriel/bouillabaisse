@@ -68,8 +68,8 @@ std::vector<InputAudioDevice> AudioDeviceManager::get_input_devices() {
         int dev_num = -1;
         while (true) {
             if (snd_ctl_pcm_next_device(ctl, &dev_num) < 0) {
-                spdlog::warn("Failed to get next device for card {}: {}", card_id,
-                             snd_strerror(err));
+                spdlog::warn("Failed to get next device for card {}: {}",
+                             card_id, snd_strerror(err));
                 break;
             }
 
