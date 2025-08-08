@@ -1,6 +1,6 @@
 CXX := clang++
 
-CXXFLAGS := -Wall -Wextra -std=c++11 -I../../${BUILD_DIR}/${LIB_DIR}/include -DVERSION='"${VERSION}"' -I ../include
+CXXFLAGS := -g -Wall -Wextra -std=c++11 -I../../${BUILD_DIR}/${LIB_DIR}/include -DVERSION='"${VERSION}"' -I ../include
 LDFLAGS  := -g --fuse-ld=lld
 
 FILES := $(shell find . -name '*.cpp')

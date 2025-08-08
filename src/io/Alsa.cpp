@@ -1,3 +1,4 @@
+#include "spdlog/spdlog.h"
 #include <alsa/asoundlib.h>
 #include <io/Alsa.hpp>
 
@@ -46,6 +47,7 @@ std::vector<InputAudioDevice> AudioDeviceManager::get_input_devices() {
 
         char card_id[32];
         snprintf(card_id, sizeof(card_id), "hw:%d", card_number);
+        spdlog::info("Trying to open card {}", card_id);
 
         if ((err = snd_ctl_open(&ctl, card_id, 0)) < 0) {
             spdlog::warn("Failed to open card {}: {}", card_id,
@@ -66,7 +68,8 @@ std::vector<InputAudioDevice> AudioDeviceManager::get_input_devices() {
         int dev_num = -1;
         while (true) {
             if (snd_ctl_pcm_next_device(ctl, &dev_num) < 0) {
-
+                spdlog::warn("Failed to get next device for card {}: {}", card_id,
+                             snd_strerror(err));
                 break;
             }
 
@@ -95,8 +98,10 @@ std::vector<InputAudioDevice> AudioDeviceManager::get_input_devices() {
 
             input_devices.emplace_back(card_number, dev_num, card_name_str,
                                        device_name_str);
-            snd_ctl_close(ctl);
         }
+
+        if (snd_card_next(&card_number) < 0)
+            break;
 
         snd_ctl_close(ctl);
     }
