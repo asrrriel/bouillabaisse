@@ -1,4 +1,4 @@
-CXX := clang++
+CXX = clang++
 
 CXXFLAGS := -Wall -Wextra -std=c++11 -I../../${BUILD_DIR}/${LIB_DIR}/include -DVERSION='"${VERSION}"' -I ../include
 LDFLAGS  := -g --fuse-ld=lld
@@ -9,7 +9,7 @@ OBJS := $(FILES:.cpp=.o)
 OBJS := $(patsubst .%,../../${BUILD_DIR}/${OBJ_DIR}%,$(OBJS))
 
 all: $(OBJS)
-	ar rc ../../${BUILD_DIR}/${BIN_DIR}/app.a $(OBJS)
+	ar rc ../../${BUILD_DIR}/${BIN_DIR}/io.a $(OBJS)
 
 ../../${BUILD_DIR}/${OBJ_DIR}/%.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@

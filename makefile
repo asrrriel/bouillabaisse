@@ -1,5 +1,5 @@
 LD := clang++
-LDFLAGS  := -g -fuse-ld=lld -lfmt
+LDFLAGS  := -g -fuse-ld=lld -lfmt -lasound
 
 BUILD_DIR := build
 OBJ_DIR := obj
@@ -9,6 +9,13 @@ LIB_DIR := lib
 VERSION := $(shell git rev-parse --short HEAD)
 
 export VERSION BUILD_DIR OBJ_DIR BIN_DIR LIB_DIR
+
+.PHONY: all
+all: libs
+	$(MAKE) -C src/app
+	$(MAKE) -C src/io
+#TODO: the rest of the app 
+	$(LD) $(LDFLAGS) -o ${BUILD_DIR}/bouillabaisse $(shell find ${BUILD_DIR}/${BIN_DIR} -name '*.a')
 
 dirs:
 	@mkdir -p ${BUILD_DIR}
@@ -34,11 +41,6 @@ endif
 clean:
 	rm -rf ${BUILD_DIR}
 
-.PHONY: all
-all: libs
-	$(MAKE) -C src/app
-#TODO: the rest of the app 
-	$(LD) $(LDFLAGS) -o ${BUILD_DIR}/bouillabaisse $(shell find ${BUILD_DIR}/${BIN_DIR} -name '*.a')
 
 .PHONY: run
 run: all
