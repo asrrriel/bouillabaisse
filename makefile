@@ -6,7 +6,7 @@ OBJ_DIR := obj
 BIN_DIR := bin
 LIB_DIR := lib
 
-VERSION := $(shell git describe --abbrev=0 --tags)
+VERSION := $(shell git rev-parse --short HEAD)
 
 export VERSION BUILD_DIR OBJ_DIR BIN_DIR LIB_DIR
 
@@ -39,3 +39,7 @@ all: libs
 	$(MAKE) -C src/app
 #TODO: the rest of the app 
 	$(LD) $(LDFLAGS) -o ${BUILD_DIR}/bouillabaisse $(shell find ${BUILD_DIR}/${BIN_DIR} -name '*.a')
+
+.PHONY: run
+run: all
+	./${BUILD_DIR}/bouillabaisse

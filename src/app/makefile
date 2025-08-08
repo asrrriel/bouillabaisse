@@ -6,10 +6,10 @@ LDFLAGS  := -g --fuse-ld=lld
 FILES := $(shell find . -name '*.cpp')
 
 OBJS := $(FILES:.cpp=.o)
-OBJS := $(patsubst src%,../../${BUILD_DIR}/${OBJ_DIR}%,$(OBJS))
+OBJS := $(patsubst .%,../../${BUILD_DIR}/${OBJ_DIR}%,$(OBJS))
 
 all: $(OBJS)
 	ar rc ../../${BUILD_DIR}/${BIN_DIR}/app.a $(OBJS)
 
-%.o: %.cpp
-	$(CXX) $(CXXFLAGS) -c $(patsubst ${BUILD_DIR}/${OBJ_DIR}%,src%,$<) -o $@
+../../${BUILD_DIR}/${OBJ_DIR}/%.o: %.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
