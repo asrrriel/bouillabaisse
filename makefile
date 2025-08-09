@@ -13,6 +13,7 @@ export VERSION BUILD_DIR OBJ_DIR BIN_DIR LIB_DIR
 .PHONY: all
 all: libs
 	$(MAKE) -C src/app
+	$(MAKE) -C src/file
 	$(MAKE) -C src/io
 #TODO: the rest of the app 
 	$(LD) $(LDFLAGS) -o ${BUILD_DIR}/bouillabaisse $(shell find ${BUILD_DIR}/${BIN_DIR} -name '*.a')
@@ -41,6 +42,11 @@ endif
 clean:
 	rm -rf ${BUILD_DIR}
 
+.PHONY: bear
+bear:
+	bear          -- $(MAKE) -B -C src/app
+	bear --append -- $(MAKE) -B -C src/file
+	bear --append -- $(MAKE) -B -C src/io
 
 .PHONY: run
 run: all
