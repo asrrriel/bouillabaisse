@@ -2,7 +2,7 @@
 #include <alsa/asoundlib.h>
 #include <io/Alsa.hpp>
 
-int InputAudioDevice::open_stream(snd_pcm_t **handle, unsigned int sampleRate,
+int auInputDevice::open_stream(snd_pcm_t **handle, unsigned int sampleRate,
                                   unsigned int channels,
                                   snd_pcm_format_t format) {
     int err;
@@ -29,8 +29,8 @@ int InputAudioDevice::open_stream(snd_pcm_t **handle, unsigned int sampleRate,
     return 0;
 }
 
-std::vector<InputAudioDevice> AudioDeviceManager::get_input_devices() {
-    std::vector<InputAudioDevice> input_devices;
+std::vector<auInputDevice> auDeviceManager::get_input_devices() {
+    std::vector<auInputDevice> input_devices;
 
     int card_number = -1;
     int err;

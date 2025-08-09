@@ -9,7 +9,7 @@
 
 #include <spdlog/spdlog.h>
 
-class AudioDevice {
+class auDevice {
 protected:
     int card_number;
     int device_number;
@@ -28,7 +28,7 @@ protected:
     std::string device_name;
 
 public:
-    AudioDevice(int card_num, int dev_num, std::string card_n,
+    auDevice(int card_num, int dev_num, std::string card_n,
                 std::string device_n, int shared_card, int shared_dev,
                 int flags, int playback_subdevs_count, int capture_subdev_count,
                 uint8_t id[64])
@@ -40,11 +40,11 @@ public:
         memcpy(this->id, id, 64);
     }
 
-    AudioDevice(int cardNum, int devNum, std::string cardN, std::string devN)
+    auDevice(int cardNum, int devNum, std::string cardN, std::string devN)
         : card_number(cardNum), device_number(devNum),
           card_name(std::move(cardN)), device_name(std::move(devN)) {
     }
-    virtual ~AudioDevice() = default;
+    virtual ~auDevice() = default;
 
     inline int get_card_number() const {
         return card_number;
@@ -90,17 +90,17 @@ public:
     }
 };
 
-class InputAudioDevice : public AudioDevice {
+class auInputDevice : public auDevice {
 
 public:
-    using AudioDevice::AudioDevice;
+    using auDevice::auDevice;
 
     int open_stream(snd_pcm_t **handle, unsigned int sampleRate = 48000,
                     unsigned int channels   = 2,
                     snd_pcm_format_t format = SND_PCM_FORMAT_S16_LE);
 };
 
-class AudioDeviceManager {
+class auDeviceManager {
 public:
-    std::vector<InputAudioDevice> get_input_devices();
+    std::vector<auInputDevice> get_input_devices();
 };
