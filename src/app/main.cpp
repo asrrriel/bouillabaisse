@@ -1,4 +1,6 @@
+#include "Audio.hpp"
 #include "io/Alsa.hpp"
+#include "file/Auport.hpp"
 #include <spdlog/spdlog.h>
 
 #include <fcntl.h>
@@ -68,7 +70,16 @@ main (int argc, char *argv[]) {
         }
     }
 
-    output_devices[0].sin_play ();
+    auFileReader reader("test.wav", AudioFileFormat::AudioFFWav);
 
+    if(reader.get_error()) {
+        return 1;
+    }
+
+    auSFormat s_format = reader.get_s_format();
+
+    spdlog::info("Audio file with sample rate {},bit depth {} channels {} read successfully", s_format.sample_rate, s_format.bit_depth, s_format.channels);
+
+    spdlog::info("Audio file duration is {} seconds", reader.get_duration());
     return 0;
 }
