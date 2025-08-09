@@ -120,7 +120,7 @@ public:
                      unsigned int channels   = 2,
                      snd_pcm_format_t format = SND_PCM_FORMAT_S16_LE);
 
-    int sin_play (uint32_t frequency = 440, uint32_t duration_ms = 1000);
+    int play_chunk (const void *data, size_t size);
 
     int write_frame (const void *data, size_t size);
 };

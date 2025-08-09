@@ -17,22 +17,8 @@ print_version () {
 int
 main (int argc, char *argv[]) {
     print_version ();
-    spdlog::info ("TODO: the whole thing :skull:");
 
     auDeviceManager adm;
-
-    auto input_devices = adm.get_input_devices ();
-
-    if (input_devices.empty ()) {
-        spdlog::error ("No input audio devices found.");
-        return 1;
-    }
-
-    for (const auto &device : input_devices) {
-        spdlog::info ("Input Device: {} (Card: {}, Device: {})",
-                      device.get_dev_name (), device.get_card_name (),
-                      device.get_dev_number ());
-    }
 
     auto output_devices = adm.get_output_devices ();
 
@@ -47,29 +33,6 @@ main (int argc, char *argv[]) {
                       device.get_dev_number ());
     }
 
-    snd_pcm_t *input_handle  = nullptr;
-    snd_pcm_t *output_handle = nullptr;
-
-    if (input_devices.size () > 0) {
-        auto &input_device = input_devices[0];
-        if (input_device.open_stream (&input_handle, 44100, 2,
-                                      SND_PCM_FORMAT_S16_LE)
-            < 0) {
-            spdlog::error ("Failed to open input stream.");
-            return 1;
-        }
-    }
-
-    if (output_devices.size () > 0) {
-        auto &output_device = output_devices[0];
-        if (output_device.open_stream (&output_handle, 44100, 2,
-                                       SND_PCM_FORMAT_S16_LE)
-            < 0) {
-            spdlog::error ("Failed to open output stream.");
-            return 1;
-        }
-    }
-
     auFileReader reader("test.wav", AudioFileFormat::AudioFFWav);
 
     if(reader.get_error()) {
@@ -82,18 +45,36 @@ main (int argc, char *argv[]) {
 
     spdlog::info("Audio file duration is {} seconds", reader.get_duration());
 
-    spdlog::info("exporting it as \"test2.wav\"");
-    
-    auFileWriter writer("test2.wav", AudioFileFormat::AudioFFWav, s_format);
-
 
     uint32_t buffer_size = reader.get_buf_size();
+    uint32_t second_size = (s_format.sample_rate * s_format.channels * s_format.bit_depth) / 8;
 
-    char *buffer = new char[buffer_size];
-    
-    //just copy the whole thing at once
-    reader.read_chunk(buffer, buffer_size);
-    writer.write_chunk(buffer, buffer_size);
+    char *buffer = new char[second_size];
+
+    uint32_t data_read = 0;
+
+    snd_pcm_t *speaker_handle = nullptr;
+
+    if (output_devices.size () > 0) {
+        auto &output_device = output_devices[0];
+        if (output_device.open_stream (&speaker_handle, s_format.sample_rate, s_format.channels,
+                                       SND_PCM_FORMAT_S16_LE)
+            < 0) {
+            spdlog::error ("Failed to open output stream.");
+            return 1;
+        }
+    }
+
+    while(reader.read_chunk(buffer, second_size)) {
+        data_read += second_size;
+        if(data_read >= buffer_size) {
+            break;
+        }
+        output_devices[0].play_chunk(buffer, second_size);
+        spdlog::info("Relayed {} seconds", data_read / second_size);
+    }
+
+    delete[] buffer;
 
     return 0;
 }

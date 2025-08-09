@@ -64,29 +64,23 @@ auOutputDevice::open_stream (snd_pcm_t **handle, unsigned int sampleRate,
 }
 
 int
-auOutputDevice::sin_play (uint32_t frequency, uint32_t duration_ms) {
+auOutputDevice::play_chunk (const void *data, size_t size) {
     if (!handle) {
         spdlog::error ("Output device wasnt opened yet!");
         return -1;
     }
 
-    snd_pcm_sframes_t  frames = (sample_rate * duration_ms) / 1000;
-    std::vector<short> buffer (frames * 2);
-    for (size_t i = 0; i < buffer.size (); i += 2) {
-        buffer[i]     = 32767 * sin (2 * M_PI * frequency * i / sample_rate);
-        buffer[i + 1] = buffer[i];
-    }
     snd_pcm_sframes_t written
-        = snd_pcm_writei (handle, buffer.data (), buffer.size () / 2);
+        = snd_pcm_writei (handle, data, size);
     if (written < 0) {
         spdlog::error ("Failed to write to PCM device: {}",
                        snd_strerror (written));
         return written;
-    } else if (written < static_cast<snd_pcm_sframes_t> (buffer.size () / 2)) {
-        spdlog::warn ("Short write: expected {}, wrote {}", buffer.size () / 2,
+    } else if (written < static_cast<snd_pcm_sframes_t> (size)) {
+        spdlog::warn ("Short write: expected {}, wrote {}", size,
                       written);
     } else {
-        spdlog::info ("Beep written successfully: {} frames", written);
+        spdlog::info ("Chunk written successfully: {} frames", written);
     }
 
     snd_pcm_drain (handle);
