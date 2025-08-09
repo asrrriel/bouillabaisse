@@ -64,46 +64,21 @@ auOutputDevice::open_stream (snd_pcm_t **handle, unsigned int sampleRate,
 }
 
 int
-auOutputDevice::play_chunk (const void *data, size_t size) {
+auOutputDevice::play_chunk(const void *data, size_t num_frames) {
     if (!handle) {
         spdlog::error ("Output device wasnt opened yet!");
         return -1;
     }
 
     snd_pcm_sframes_t written
-        = snd_pcm_writei (handle, data, size);
+        = snd_pcm_writei (handle, data, num_frames);
     if (written < 0) {
         spdlog::error ("Failed to write to PCM device: {}",
                        snd_strerror (written));
         return written;
-    } else if (written < static_cast<snd_pcm_sframes_t> (size)) {
-        spdlog::warn ("Short write: expected {}, wrote {}", size,
+    } else if (written < static_cast<snd_pcm_sframes_t> (num_frames)) {
+        spdlog::warn ("Short write: expected {}, wrote {}", num_frames,
                       written);
-    } else {
-        spdlog::info ("Chunk written successfully: {} frames", written);
-    }
-
-    snd_pcm_drain (handle);
-
-    return 0;
-}
-
-int
-auOutputDevice::write_frame (const void *data, size_t size) {
-    if (!handle) {
-        spdlog::error ("Output device wasnt opened yet!");
-        return -1;
-    }
-
-    snd_pcm_sframes_t written = snd_pcm_writei (handle, data, size / 2);
-    if (written < 0) {
-        spdlog::error ("Failed to write to PCM device: {}",
-                       snd_strerror (written));
-        return written;
-    } else if (written < static_cast<snd_pcm_sframes_t> (size / 2)) {
-        spdlog::warn ("Short write: expected {}, wrote {}", size / 2, written);
-    } else {
-        spdlog::info ("Data written successfully: {} frames", written);
     }
 
     return 0;

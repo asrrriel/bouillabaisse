@@ -70,9 +70,13 @@ main (int argc, char *argv[]) {
         if(data_read >= buffer_size) {
             break;
         }
-        output_devices[0].play_chunk(buffer, second_size);
+        output_devices[0].play_chunk(buffer, second_size / (s_format.channels * (s_format.bit_depth) / 8));
         spdlog::info("Relayed {} seconds", data_read / second_size);
     }
+
+    //play the rest
+    reader.read_chunk(buffer, buffer_size % second_size);
+    output_devices[0].play_chunk(buffer, (buffer_size % second_size) / (s_format.channels * (s_format.bit_depth) / 8));
 
     delete[] buffer;
 
