@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cstring>
 #include <file/Auport.hpp>
+#include <sys/types.h>
 
 auFileReader::auFileReader(std::filesystem::path _path, AudioFileFormat _format) 
     : s_format(44100, 16, 2, auDtype::sInt) {
@@ -53,8 +54,24 @@ auFileReader::auFileReader(std::filesystem::path _path, AudioFileFormat _format)
             file.read(reinterpret_cast<char *>(&block_size), 2);
             uint16_t bits_per_sample;
             file.read(reinterpret_cast<char *>(&bits_per_sample), 2);
-            uint32_t dwSize;
-            file.read(reinterpret_cast<char *>(&dwSize), 4);
+
+            uint32_t data_size;
+            bool found = false;
+
+            while (file.read(buffer, 4) && file.read(reinterpret_cast<char*>(&data_size), 4)) {
+                if (std::memcmp(buffer, "data", 4) == 0) {
+                    found = true;
+                    break;
+                }
+                // Skip to next chunk (chunks are aligned to even sizes)
+                file.seekg((data_size + 1) & ~1, std::ios::cur);
+            }
+
+            if(!found) {
+                spdlog::error("\"{}\" is corrupted(missing data chunk)!", path.string());
+                error = true;
+                return;
+            }
 
             if(fmt_size != 16) {
                 spdlog::error("\"{}\" is corrupted(invalid format_size)!", path.string());
@@ -78,7 +95,7 @@ auFileReader::auFileReader(std::filesystem::path _path, AudioFileFormat _format)
             s_format.channels = num_channels;
             switch (fmt_type) {
                 case 1:
-                    s_format.data_type = auDtype::sInt;
+                    s_format.data_type = auDtype::uInt;
                     break;
                 case 3:
                     s_format.data_type = auDtype::sFloat;
@@ -89,21 +106,23 @@ auFileReader::auFileReader(std::filesystem::path _path, AudioFileFormat _format)
                     return;
             }
 
-            duration = fsize / bytes_per_sec;
+            duration = data_size / bytes_per_sec;
+            buf_size = data_size;
 
-            break;
-        default:
             break;
     }
 }
 auFileReader::~auFileReader() {
-    //theres really nothing to do here   
+    file.close(); 
 }
 bool auFileReader::get_error() {
     return error;
 }
 uint32_t auFileReader::get_duration() {
     return duration;
+}
+uint32_t auFileReader::get_buf_size() {
+    return buf_size;
 }
 auSFormat auFileReader::get_s_format() {
     return s_format;
@@ -113,15 +132,53 @@ bool auFileReader::read_chunk(char* buffer, size_t size) {
     file.read(buffer, size);
     return true;
 }
-auFileWriter::auFileWriter(std::filesystem::path path, AudioFileFormat format, auSFormat s_format) {
-    
+auFileWriter::auFileWriter(std::filesystem::path _path, AudioFileFormat _format, auSFormat _s_format) 
+    : s_format(_s_format) {
+    path = _path;
+    format = _format;
+    file = std::ofstream(path, std::ios::binary);
+
+    auto write_u32 = [&](uint32_t v) { file.write(reinterpret_cast<const char*>(&v), 4); };
+    auto write_u16 = [&](uint16_t v) { file.write(reinterpret_cast<const char*>(&v), 2); };
+    auto write_str = [&](const char* s, size_t len) { file.write(s, len); };
+
+    switch (format) {
+        case AudioFileFormat::AudioFFWav:
+            write_str("RIFF", 4);
+            write_u32(0);
+            write_str("WAVE", 4);
+            write_str("fmt ", 4);
+            write_u32(16); 
+            write_u16(_s_format.data_type == auDtype::uInt ? 1 : 3);  
+            write_u16(_s_format.channels);
+            write_u32(_s_format.sample_rate);
+            write_u32((_s_format.sample_rate * _s_format.channels * _s_format.bit_depth) / 8);
+            write_u16((_s_format.channels * _s_format.bit_depth) / 8);
+            write_u16(_s_format.bit_depth);
+            write_str("data", 4);
+            write_u32(0);
+            break;
+        default:
+            break;
+    }
 }
 bool auFileWriter::get_error() {
     return error;
 }
 auFileWriter::~auFileWriter() {
-    //theres really nothing to do here
+    uint32_t file_size = uint32_t(file.tellp());
+
+    uint32_t riff_size = file_size - 8; // file size - riff header
+    file.seekp(4, std::ios::beg);
+    file.write(reinterpret_cast<const char*>(&riff_size), 4);
+
+    uint32_t data_size = file_size - 44; // file size - full header
+    file.seekp(40, std::ios::beg);
+    file.write(reinterpret_cast<const char*>(&data_size), 4);
+
+    file.close();
 }
 bool auFileWriter::write_chunk(char* buffer, size_t size) {
+    file.write(buffer, size);
     return true;
 }

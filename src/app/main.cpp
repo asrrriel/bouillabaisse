@@ -81,5 +81,19 @@ main (int argc, char *argv[]) {
     spdlog::info("Audio file with sample rate {},bit depth {} channels {} read successfully", s_format.sample_rate, s_format.bit_depth, s_format.channels);
 
     spdlog::info("Audio file duration is {} seconds", reader.get_duration());
+
+    spdlog::info("exporting it as \"test2.wav\"");
+    
+    auFileWriter writer("test2.wav", AudioFileFormat::AudioFFWav, s_format);
+
+
+    uint32_t buffer_size = reader.get_buf_size();
+
+    char *buffer = new char[buffer_size];
+    
+    //just copy the whole thing at once
+    reader.read_chunk(buffer, buffer_size);
+    writer.write_chunk(buffer, buffer_size);
+
     return 0;
 }
