@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstddef>
 
 enum auDtype {
     // invalid
@@ -32,3 +33,6 @@ struct auSFormat {
     }
     bool verify ();
 };
+
+size_t au_convert_buffer_size(auSFormat from, auSFormat to, size_t size);
+bool   au_convert_buffer     (auSFormat from, auSFormat to, char *from_buf, size_t fromsize,char *to_buf);
