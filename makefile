@@ -1,15 +1,18 @@
 CXX := clang++
 LD := clang++
 
-CXXFLAGS := -g -Wall -Wextra -std=c++20 -I../../${BUILD_DIR}/${LIB_DIR}/include -DVERSION='"${VERSION}"' -I ../include -Wno-reorder-ctor
-LDFLAGS  := -g -fuse-ld=lld -lfmt -lasound
+VERSION := $(shell git rev-parse --short HEAD)
+
+DEBUG_CXXFLAGS = -g -Wall -Wextra -Werror -Wno-error=unused-parameter -fsanitize=address -fsanitize=undefined 
+DEBUG_LDFLAGS  = -g -fsanitize=address -fsanitize=undefined
+
+CXXFLAGS := -std=c++20 -I../../${BUILD_DIR}/${LIB_DIR}/include -DVERSION='"${VERSION}"' -I ../include $(DEBUG_CXXFLAGS)
+LDFLAGS  := -fuse-ld=lld -lfmt -lasound $(DEBUG_LDFLAGS)
 
 BUILD_DIR := build
 OBJ_DIR := obj
 BIN_DIR := bin
 LIB_DIR := lib
-
-VERSION := $(shell git rev-parse --short HEAD)
 
 export CXX CXXFLAGS VERSION BUILD_DIR OBJ_DIR BIN_DIR LIB_DIR
 
