@@ -12,6 +12,7 @@ fmt_type_to_dtype (uint16_t fmt_type, uint16_t bit_depth) {
         if (bit_depth == 8) { return auDtype::uInt; }
         return auDtype::sInt;
     case 3:
+        if(bit_depth == 64) { return auDtype::sDouble; }
         return auDtype::sFloat;
     case 6:
         return auDtype::uALaw;
@@ -56,7 +57,7 @@ auFileReader::auFileReader (std::filesystem::path _path,
 
     switch (format) {
     case AudioFileFormat::AudioFFWav:
-        char buffer[4];
+        char buffer[5] = {0};
         file.read (buffer, 4);
         if (memcmp (buffer, "RIFF", 4)) {
             spdlog::error ("\"{}\" is not a wav file(\"{}\" != \"RIFF\")!",
@@ -95,6 +96,31 @@ auFileReader::auFileReader (std::filesystem::path _path,
         uint16_t bits_per_sample;
         file.read (reinterpret_cast<char *> (&bits_per_sample), 2);
 
+        if (fmt_size != 16) {
+            if(fmt_size < 16){
+                spdlog::error ("\"{}\" is corrupted(fmt_size is too small)!",
+                               path.string ());
+                error = true;
+                return;
+            }
+            file.seekg(fmt_size - 16, std::ios::cur);
+        }
+
+        if (bytes_per_sec
+            != (sample_rate * num_channels * bits_per_sample) / 8) {
+            spdlog::error ("\"{}\" is corrupted(invalid bytes_per_sec)!",
+                           path.string ());
+            error = true;
+            return;
+        }
+
+        if (block_size != (num_channels * bits_per_sample) / 8) {
+            spdlog::error ("\"{}\" is corrupted(invalid block_size)!",
+                           path.string ());
+            error = true;
+            return;
+        }
+
         uint32_t data_size;
         bool     found = false;
 
@@ -110,28 +136,6 @@ auFileReader::auFileReader (std::filesystem::path _path,
 
         if (!found) {
             spdlog::error ("\"{}\" is corrupted(missing data chunk)!",
-                           path.string ());
-            error = true;
-            return;
-        }
-
-        if (fmt_size != 16) {
-            spdlog::error ("\"{}\" is corrupted(invalid format_size)!",
-                           path.string ());
-            error = true;
-            return;
-        }
-
-        if (bytes_per_sec
-            != (sample_rate * num_channels * bits_per_sample) / 8) {
-            spdlog::error ("\"{}\" is corrupted(invalid bytes_per_sec)!",
-                           path.string ());
-            error = true;
-            return;
-        }
-
-        if (block_size != (num_channels * bits_per_sample) / 8) {
-            spdlog::error ("\"{}\" is corrupted(invalid block_size)!",
                            path.string ());
             error = true;
             return;
