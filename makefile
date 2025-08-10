@@ -13,14 +13,14 @@ VERSION := $(shell git rev-parse --short HEAD)
 
 export CXX CXXFLAGS VERSION BUILD_DIR OBJ_DIR BIN_DIR LIB_DIR
 
+COMPONENTS = app file io aumidi
+
 .PHONY: all
-all: libs
-	$(MAKE) -C src/app
-	$(MAKE) -C src/file
-	$(MAKE) -C src/io
-	$(MAKE) -C src/aumidi
-#TODO: the rest of the app 
-	$(LD) $(LDFLAGS) -o ${BUILD_DIR}/bouillabaisse $(shell find ${BUILD_DIR}/${BIN_DIR} -name '*.a')
+all: $(COMPONENTS)
+	$(LD) $(LDFLAGS) -o ${BUILD_DIR}/bouillabaisse $(patsubst %,${BUILD_DIR}/${BIN_DIR}/%.a,$(COMPONENTS))
+
+$(COMPONENTS): dirs libs
+	$(MAKE) -C src/$@
 
 dirs:
 	@mkdir -p ${BUILD_DIR}
