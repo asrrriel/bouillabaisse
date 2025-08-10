@@ -1,10 +1,55 @@
 #include "spdlog/spdlog.h"
 #include <alsa/asoundlib.h>
+#include <fmt/core.h>
 #include <io/Alsa.hpp>
 
+snd_pcm_format_t
+sformat_to_pcm_format (auSFormat s_format) {
+    switch (s_format.data_type) {
+    case auDtype::uInt:
+        switch (s_format.bit_depth) {
+        case 8:
+            return SND_PCM_FORMAT_U8;
+        case 16:
+            return SND_PCM_FORMAT_U16;
+        case 24:
+            return SND_PCM_FORMAT_U24;
+        case 32:
+            return SND_PCM_FORMAT_U32;
+        default:
+            return SND_PCM_FORMAT_U16; // lmao alsa doesnt even support 64 bit
+                                       // audio
+        }
+    case auDtype::sInt:
+        switch (s_format.bit_depth) {
+        case 8:
+            return SND_PCM_FORMAT_S8;
+        case 16:
+            return SND_PCM_FORMAT_S16;
+        case 24:
+            return SND_PCM_FORMAT_S24;
+        case 32:
+            return SND_PCM_FORMAT_S32;
+        default:
+            return SND_PCM_FORMAT_S16; // lmao alsa doesnt even support 64 bit
+                                       // audio
+        }
+    case auDtype::sFloat:
+        return SND_PCM_FORMAT_FLOAT;
+    case auDtype::sDouble:
+        return SND_PCM_FORMAT_FLOAT64;
+    case auDtype::uALaw:
+        return SND_PCM_FORMAT_A_LAW;
+    case auDtype::uMuLaw:
+        return SND_PCM_FORMAT_MU_LAW;
+    default:
+        return SND_PCM_FORMAT_S16_LE;
+    }
+}
+
 int
-auInputDevice::open_stream (snd_pcm_t **handle, unsigned int sampleRate,
-                            unsigned int channels, snd_pcm_format_t format) {
+auInputDevice::open_stream (snd_pcm_t **handle, auSFormat s_format,
+                            size_t latency) {
     int         err;
     std::string dev_str = get_dev_string ();
 
@@ -16,9 +61,10 @@ auInputDevice::open_stream (snd_pcm_t **handle, unsigned int sampleRate,
         return err;
     }
 
-    if ((err
-         = snd_pcm_set_params (*handle, format, SND_PCM_ACCESS_RW_INTERLEAVED,
-                               channels, sampleRate, 1, 500000))
+    if ((err = snd_pcm_set_params (*handle, sformat_to_pcm_format (s_format),
+                                   SND_PCM_ACCESS_RW_INTERLEAVED,
+                                   s_format.channels, s_format.sample_rate, 1,
+                                   latency))
         < 0) {
         spdlog::error ("Failed to set PCM parameters for device {}: {}",
                        dev_str, snd_strerror (err));
@@ -27,13 +73,13 @@ auInputDevice::open_stream (snd_pcm_t **handle, unsigned int sampleRate,
     }
     spdlog::info ("PCM device {} opened successfully with sample rate {} and "
                   "channels {}",
-                  dev_str, sampleRate, channels);
+                  dev_str, s_format.sample_rate, s_format.channels);
     return 0;
 }
 
 int
-auOutputDevice::open_stream (snd_pcm_t **handle, unsigned int sampleRate,
-                             unsigned int channels, snd_pcm_format_t format) {
+auOutputDevice::open_stream (snd_pcm_t **handle, auSFormat s_format,
+                             size_t latency) {
     int         err;
     std::string dev_str = get_dev_string ();
 
@@ -45,9 +91,14 @@ auOutputDevice::open_stream (snd_pcm_t **handle, unsigned int sampleRate,
         return err;
     }
 
-    if ((err
-         = snd_pcm_set_params (*handle, format, SND_PCM_ACCESS_RW_INTERLEAVED,
-                               channels, sampleRate, 1, 500000))
+    snd_pcm_format_t fmt = sformat_to_pcm_format (s_format);
+
+    spdlog::info ("Trying to open PCM device {} with format {}", dev_str,
+                  snd_pcm_format_name (fmt));
+
+    if ((err = snd_pcm_set_params (*handle, fmt, SND_PCM_ACCESS_RW_INTERLEAVED,
+                                   s_format.channels, s_format.sample_rate, 1,
+                                   latency))
         < 0) {
         spdlog::error ("Failed to set PCM parameters for device {}: {}",
                        dev_str, snd_strerror (err));
@@ -56,22 +107,21 @@ auOutputDevice::open_stream (snd_pcm_t **handle, unsigned int sampleRate,
     }
     spdlog::info ("PCM device {} opened successfully with sample rate {} and "
                   "channels {}",
-                  dev_str, sampleRate, channels);
+                  dev_str, s_format.sample_rate, s_format.channels);
 
     this->handle      = *handle;
-    this->sample_rate = sampleRate;
+    this->sample_rate = s_format.sample_rate;
     return 0;
 }
 
 int
-auOutputDevice::play_chunk(const void *data, size_t num_frames) {
+auOutputDevice::play_chunk (const void *data, size_t num_frames) {
     if (!handle) {
         spdlog::error ("Output device wasnt opened yet!");
         return -1;
     }
 
-    snd_pcm_sframes_t written
-        = snd_pcm_writei (handle, data, num_frames);
+    snd_pcm_sframes_t written = snd_pcm_writei (handle, data, num_frames);
     if (written < 0) {
         spdlog::error ("Failed to write to PCM device: {}",
                        snd_strerror (written));
@@ -87,6 +137,8 @@ auOutputDevice::play_chunk(const void *data, size_t num_frames) {
 std::vector<auOutputDevice>
 auDeviceManager::get_output_devices () {
     std::vector<auOutputDevice> output_devices;
+
+    output_devices.emplace_back (0, 0, "pulse", "pulse", "pulse");
 
     int card_number = -1;
     int err;
@@ -139,8 +191,11 @@ auDeviceManager::get_output_devices () {
 
             std::string device_name_str = snd_pcm_info_get_name (pcminfo);
 
+            std::string device_string
+                = fmt::format ("hw:{},{}", card_number, dev_num);
+
             output_devices.emplace_back (card_number, dev_num, card_name_str,
-                                         device_name_str);
+                                         device_name_str, device_string);
         }
 
         if (snd_card_next (&card_number) < 0) break;
@@ -153,6 +208,8 @@ auDeviceManager::get_output_devices () {
 std::vector<auInputDevice>
 auDeviceManager::get_input_devices () {
     std::vector<auInputDevice> input_devices;
+
+    input_devices.emplace_back (0, 0, "pulse", "pulse", "pulse");
 
     int card_number = -1;
     int err;
@@ -205,16 +262,11 @@ auDeviceManager::get_input_devices () {
 
             std::string device_name_str = snd_pcm_info_get_name (pcminfo);
 
-            /*
-             card_number(card_num), device_number(dev_num), card_name(card_n),
-                      device_name(device_n), shared_card(shared_card),
-                      shared_dev(shared_dev), flags(flags),
-                      playback_subdevs_count(playback_subdevs_count),
-                      capture_subdev_count(capture_subdev_count)
-             * */
+            std::string device_string
+                = fmt::format ("hw:{},{}", card_number, dev_num);
 
             input_devices.emplace_back (card_number, dev_num, card_name_str,
-                                        device_name_str);
+                                        device_name_str, device_string);
         }
 
         if (snd_card_next (&card_number) < 0) break;

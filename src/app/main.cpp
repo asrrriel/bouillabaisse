@@ -1,6 +1,6 @@
 #include "Audio.hpp"
-#include "io/Alsa.hpp"
 #include "file/Auport.hpp"
+#include "io/Alsa.hpp"
 #include <spdlog/spdlog.h>
 
 #include <fcntl.h>
@@ -33,21 +33,22 @@ main (int argc, char *argv[]) {
                       device.get_dev_number ());
     }
 
-    auFileReader reader("test.wav", AudioFileFormat::AudioFFWav);
+    auFileReader reader ("test.wav", AudioFileFormat::AudioFFWav);
 
-    if(reader.get_error()) {
-        return 1;
-    }
+    if (reader.get_error ()) { return 1; }
 
-    auSFormat s_format = reader.get_s_format();
+    auSFormat s_format = reader.get_s_format ();
+    if (!s_format.verify ()) { return 1; }
 
-    spdlog::info("Audio file with sample rate {},bit depth {} channels {} read successfully", s_format.sample_rate, s_format.bit_depth, s_format.channels);
+    spdlog::info ("Audio file with sample rate {},bit depth {} channels {} "
+                  "read successfully",
+                  s_format.sample_rate, s_format.bit_depth, s_format.channels);
 
-    spdlog::info("Audio file duration is {} seconds", reader.get_duration());
+    spdlog::info ("Audio file duration is {} seconds", reader.get_duration ());
 
-
-    uint32_t buffer_size = reader.get_buf_size();
-    uint32_t second_size = (s_format.sample_rate * s_format.channels * s_format.bit_depth) / 8;
+    uint32_t buffer_size = reader.get_buf_size ();
+    uint32_t second_size
+        = (s_format.sample_rate * s_format.channels * s_format.bit_depth) / 8;
 
     char *buffer = new char[second_size];
 
@@ -57,26 +58,26 @@ main (int argc, char *argv[]) {
 
     if (output_devices.size () > 0) {
         auto &output_device = output_devices[0];
-        if (output_device.open_stream (&speaker_handle, s_format.sample_rate, s_format.channels,
-                                       SND_PCM_FORMAT_S16_LE)
-            < 0) {
+        if (output_device.open_stream (&speaker_handle, s_format) < 0) {
             spdlog::error ("Failed to open output stream.");
             return 1;
         }
     }
 
-    while(reader.read_chunk(buffer, second_size)) {
+    while (reader.read_chunk (buffer, second_size)) {
         data_read += second_size;
-        if(data_read >= buffer_size) {
-            break;
-        }
-        output_devices[0].play_chunk(buffer, second_size / (s_format.channels * (s_format.bit_depth) / 8));
-        spdlog::info("Relayed {} seconds", data_read / second_size);
+        if (data_read >= buffer_size) { break; }
+        output_devices[0].play_chunk (
+            buffer,
+            second_size / (s_format.channels * (s_format.bit_depth) / 8));
+        spdlog::info ("Relayed {} seconds", data_read / second_size);
     }
 
-    //play the rest
-    reader.read_chunk(buffer, buffer_size % second_size);
-    output_devices[0].play_chunk(buffer, (buffer_size % second_size) / (s_format.channels * (s_format.bit_depth) / 8));
+    // play the rest
+    reader.read_chunk (buffer, buffer_size % second_size);
+    output_devices[0].play_chunk (
+        buffer, (buffer_size % second_size)
+                    / (s_format.channels * (s_format.bit_depth) / 8));
 
     delete[] buffer;
 

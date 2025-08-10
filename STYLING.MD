@@ -8,6 +8,7 @@
   * `au` for audio subsystem (e.g., `auDevice`, `auInputDevice`)
   * `ap` for application subsystem
   * `io` for input/output subsystem
+  * `mi` for MIDI subsystem
 #### Constants use uppercase letters to indicate meaning:
   * `D` = data (e.g. in `auDType`)
   * `S` = sample (e.g. in `auSFormat`)

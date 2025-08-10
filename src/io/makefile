@@ -1,8 +1,3 @@
-CXX = clang++
-
-CXXFLAGS := -g -Wall -Wextra -std=c++20 -I../../${BUILD_DIR}/${LIB_DIR}/include -DVERSION='"${VERSION}"' -I ../include -Wno-reorder-ctor
-LDFLAGS  := -g --fuse-ld=lld
-
 FILES := $(shell find . -name '*.cpp')
 
 OBJS := $(FILES:.cpp=.o)

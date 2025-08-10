@@ -1,4 +1,7 @@
+CXX := clang++
 LD := clang++
+
+CXXFLAGS := -g -Wall -Wextra -std=c++20 -I../../${BUILD_DIR}/${LIB_DIR}/include -DVERSION='"${VERSION}"' -I ../include -Wno-reorder-ctor
 LDFLAGS  := -g -fuse-ld=lld -lfmt -lasound
 
 BUILD_DIR := build
@@ -8,13 +11,14 @@ LIB_DIR := lib
 
 VERSION := $(shell git rev-parse --short HEAD)
 
-export VERSION BUILD_DIR OBJ_DIR BIN_DIR LIB_DIR
+export CXX CXXFLAGS VERSION BUILD_DIR OBJ_DIR BIN_DIR LIB_DIR
 
 .PHONY: all
 all: libs
 	$(MAKE) -C src/app
 	$(MAKE) -C src/file
 	$(MAKE) -C src/io
+	$(MAKE) -C src/aumidi
 #TODO: the rest of the app 
 	$(LD) $(LDFLAGS) -o ${BUILD_DIR}/bouillabaisse $(shell find ${BUILD_DIR}/${BIN_DIR} -name '*.a')
 
@@ -47,6 +51,10 @@ bear:
 	bear          -- $(MAKE) -B -C src/app
 	bear --append -- $(MAKE) -B -C src/file
 	bear --append -- $(MAKE) -B -C src/io
+	bear --append -- $(MAKE) -B -C src/aumidi
+
+format:
+	clang-format -i $(shell find src -name '*.cpp') $(shell find src -name '*.h') $(shell find src -name '*.hpp')
 
 .PHONY: run
 run: all
