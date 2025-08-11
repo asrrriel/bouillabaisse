@@ -3,8 +3,7 @@
 #include <fmt/core.h>
 #include <io/Alsa.hpp>
 
-snd_pcm_format_t
-sformat_to_pcm_format (auSFormat s_format) {
+snd_pcm_format_t sformat_to_pcm_format (auSFormat s_format) {
     switch (s_format.data_type) {
     case auDtype::uInt:
         switch (s_format.bit_depth) {
@@ -42,14 +41,17 @@ sformat_to_pcm_format (auSFormat s_format) {
         return SND_PCM_FORMAT_A_LAW;
     case auDtype::uMuLaw:
         return SND_PCM_FORMAT_MU_LAW;
+    case auDtype::uDviAdpcm:
+        return SND_PCM_FORMAT_IMA_ADPCM;
+    case auDtype::uMsAdpcm:
+        return SND_PCM_FORMAT_IMA_ADPCM;
     default:
         return SND_PCM_FORMAT_S16_LE;
     }
 }
 
-int
-auInputDevice::open_stream (snd_pcm_t **handle, auSFormat s_format,
-                            size_t latency) {
+int auInputDevice::open_stream (snd_pcm_t **handle, auSFormat s_format,
+                                size_t latency) {
     int         err;
     std::string dev_str = get_dev_string ();
 
@@ -77,9 +79,8 @@ auInputDevice::open_stream (snd_pcm_t **handle, auSFormat s_format,
     return 0;
 }
 
-int
-auOutputDevice::open_stream (snd_pcm_t **handle, auSFormat s_format,
-                             size_t latency) {
+int auOutputDevice::open_stream (snd_pcm_t **handle, auSFormat s_format,
+                                 size_t latency) {
     int         err;
     std::string dev_str = get_dev_string ();
 
@@ -114,8 +115,7 @@ auOutputDevice::open_stream (snd_pcm_t **handle, auSFormat s_format,
     return 0;
 }
 
-int
-auOutputDevice::play_chunk (const void *data, size_t num_frames) {
+int auOutputDevice::play_chunk (const void *data, size_t num_frames) {
     if (!handle) {
         spdlog::error ("Output device wasnt opened yet!");
         return -1;
@@ -134,8 +134,7 @@ auOutputDevice::play_chunk (const void *data, size_t num_frames) {
     return 0;
 }
 
-std::vector<auOutputDevice>
-auDeviceManager::get_output_devices () {
+std::vector<auOutputDevice> auDeviceManager::get_output_devices () {
     std::vector<auOutputDevice> output_devices;
 
     output_devices.emplace_back (0, 0, "pulse", "pulse", "pulse");
@@ -205,8 +204,7 @@ auDeviceManager::get_output_devices () {
     return output_devices;
 }
 
-std::vector<auInputDevice>
-auDeviceManager::get_input_devices () {
+std::vector<auInputDevice> auDeviceManager::get_input_devices () {
     std::vector<auInputDevice> input_devices;
 
     input_devices.emplace_back (0, 0, "pulse", "pulse", "pulse");

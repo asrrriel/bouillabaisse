@@ -1,23 +1,27 @@
 #pragma once
 
-#include <cstdint>
 #include <cstddef>
+#include <cstdint>
 
 enum auDtype {
     // invalid
-    eInvalid = -1,
+    eInvalid  = -1,
     // signed integer
-    sInt     = 0,
+    sInt      = 0,
     // unsigned integer
-    uInt     = 1,
+    uInt      = 1,
     // floating point
-    sFloat   = 2,
+    sFloat    = 2,
     // double floating point
-    sDouble  = 3,
+    sDouble   = 3,
     // A-Law
-    uALaw    = 4,
+    uALaw     = 4,
     // Mu-Law
-    uMuLaw   = 5
+    uMuLaw    = 5,
+    // DVI ADPCM
+    uDviAdpcm = 6,
+    // Microsoft ADPCM
+    uMsAdpcm  = 7
 };
 
 struct auSFormat {
@@ -34,5 +38,6 @@ struct auSFormat {
     bool verify ();
 };
 
-size_t au_convert_buffer_size(auSFormat from, auSFormat to, size_t size);
-bool   au_convert_buffer     (auSFormat from, auSFormat to, char *from_buf, size_t fromsize,char *to_buf);
+size_t au_convert_buffer_size (auSFormat from, auSFormat to, size_t size);
+bool   au_convert_buffer (auSFormat from, auSFormat to, char *from_buf,
+                          size_t fromsize, char *to_buf);

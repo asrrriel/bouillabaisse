@@ -45,55 +45,29 @@ public:
         dev_string (std::move (dev_str)) {}
     virtual ~auDevice () = default;
 
-    inline int
-    get_card_number () const {
-        return card_number;
-    }
+    inline int get_card_number () const { return card_number; }
 
-    inline int
-    get_dev_number () const {
-        return device_number;
-    }
+    inline int get_dev_number () const { return device_number; }
 
-    inline std::string
-    get_dev_name () const {
-        return device_name;
-    }
+    inline std::string get_dev_name () const { return device_name; }
 
-    inline std::string
-    get_card_name () const {
-        return card_name;
-    }
+    inline std::string get_card_name () const { return card_name; }
 
-    inline int
-    get_shared_card () const {
-        return shared_card;
-    }
+    inline int get_shared_card () const { return shared_card; }
 
-    inline int
-    get_shared_dev () const {
-        return shared_dev;
-    }
+    inline int get_shared_dev () const { return shared_dev; }
 
-    inline int
-    get_flags () const {
-        return flags;
-    }
+    inline int get_flags () const { return flags; }
 
-    inline int
-    get_playback_subdevs_count () const {
+    inline int get_playback_subdevs_count () const {
         return playback_subdevs_count;
     }
 
-    inline int
-    get_capture_subdevs_count () const {
+    inline int get_capture_subdevs_count () const {
         return capture_subdev_count;
     }
 
-    inline std::string
-    get_dev_string () const {
-        return dev_string;
-    }
+    inline std::string get_dev_string () const { return dev_string; }
 };
 
 class auInputDevice : public auDevice {

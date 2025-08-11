@@ -9,13 +9,11 @@
 #include <termios.h>
 #include <unistd.h>
 
-void
-print_version () {
+void print_version () {
     spdlog::info ("Bouillabaisse version \"{}\"", VERSION);
 }
 
-int
-main (int argc, char *argv[]) {
+int main (int argc, char *argv[]) {
     print_version ();
 
     auDeviceManager adm;
