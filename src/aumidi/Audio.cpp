@@ -1,6 +1,8 @@
 #include "Audio.hpp"
+#include <cmath>
 #include <cstdint>
 #include <spdlog/spdlog.h>
+#include <sys/types.h>
 
 bool auSFormat::verify () {
 
@@ -77,6 +79,14 @@ bool auSFormat::verify () {
     return true;
 }
 
+double __au_mix_float(double a, double b) {
+    return (a + b) / 2;
+}
+
+uint32_t __au_mix_uint(uint32_t a, uint32_t b) {
+    return (uint32_t)(__au_mix_float(a / double(UINT32_MAX), b / double(UINT32_MAX)) * double(UINT32_MAX));
+}
+
 size_t au_convert_buffer_size (auSFormat from, auSFormat to, size_t size) {
     if (!from.verify () || !to.verify ()) { return 0; }
     return (size_t)(float (size) * (float (to.bit_depth) * float (to.channels))
@@ -90,19 +100,176 @@ typedef bool (*au_convert_func) (auSFormat from, auSFormat to, char *from_buf,
 // From Uint
 bool __uint_to_uint (auSFormat from, auSFormat to, char *from_buf,
                      size_t fromsize, char *to_buf) {
-    // basically just bit depth conversion(TODO)
+    size_t from_frame_size = (from.bit_depth / 8) * from.channels;
+    size_t to_frame_size   = (to.bit_depth / 8) * to.channels;
+    size_t from_num_frames = fromsize / from_frame_size;
+
+    if(from.channels == to.channels){
+        for(size_t i = 0; i < from_num_frames; i++){
+            for(size_t j = 0; j < from.channels; j++){
+                uint64_t buffer = 0;
+                memcpy(&buffer, from_buf + (i * from_frame_size) + (j * (from.bit_depth / 8)), from.bit_depth / 8);
+                if(to.bit_depth < from.bit_depth){
+                    buffer >>= (from.bit_depth - to.bit_depth); //TODO: dithering isntead of clipping
+                } else {
+                    buffer <<= (to.bit_depth - from.bit_depth);
+                }
+                memcpy(to_buf + (i * to_frame_size) + (j * (to.bit_depth / 8)), &buffer, to.bit_depth / 8);
+            }
+        }
+    } else if(from.channels > to.channels){
+        size_t group_size = size_t(ceil(from.channels / float(to.channels)));
+        for(size_t i = 0; i < from_num_frames; i++){
+            size_t k = 0;
+            for(size_t j = 0; j < to.channels; j++){
+                uint64_t buffer = 0, temp = 0;
+                for(size_t l = 0; l < group_size; l++){
+                    memcpy(&temp, from_buf + (i * from_frame_size) + ((k + l) * (from.bit_depth / 8)), from.bit_depth / 8);
+                    buffer = __au_mix_uint(buffer, temp);
+                }
+                k += group_size;
+
+                if(to.bit_depth < from.bit_depth){
+                    buffer >>= (from.bit_depth - to.bit_depth); //TODO: dithering isntead of clipping
+                } else {
+                    buffer <<= (to.bit_depth - from.bit_depth);
+                }
+                memcpy(to_buf + (i * to_frame_size) + (j * (to.bit_depth / 8)), &buffer, to.bit_depth / 8);
+            }
+        }
+    } else {
+        for(size_t i = 0; i < from_num_frames; i++){
+            for(size_t j = 0; j < to.channels; j++){
+                if(j < from.channels){ 
+                    uint64_t buffer = 0;
+                    memcpy(&buffer, from_buf + (i * from_frame_size) + (j * (from.bit_depth / 8)), from.bit_depth / 8);
+                    if(to.bit_depth < from.bit_depth){
+                        buffer >>= (from.bit_depth - to.bit_depth); //TODO: dithering isntead of clipping
+                    } else {
+                        buffer <<= (to.bit_depth - from.bit_depth);
+                    }
+                    memcpy(to_buf + (i * to_frame_size) + (j * (to.bit_depth / 8)), &buffer, to_frame_size);
+                } else {
+                    memset(to_buf + (i * to_frame_size) + (j * (to.bit_depth / 8)), 0, to.bit_depth / 8);
+                }
+            }
+        }
+    }
+
     return true;
 }
 
 bool __uint_to_sint (auSFormat from, auSFormat to, char *from_buf,
                      size_t fromsize, char *to_buf) {
-    // basically just bit depth conversion and sign extension(TODO)
+    size_t from_frame_size = (from.bit_depth / 8) * from.channels;
+    size_t to_frame_size   = (to.bit_depth / 8) * to.channels;
+    size_t from_num_frames = fromsize / from_frame_size;
+
+    if(from.channels == to.channels){
+        for(size_t i = 0; i < from_num_frames; i++){
+            for(size_t j = 0; j < from.channels; j++){
+                uint64_t buffer = 0;
+                memcpy(&buffer, from_buf + (i * from_frame_size) + (j * (from.bit_depth / 8)), from.bit_depth / 8);
+                if(to.bit_depth < from.bit_depth){
+                    buffer >>= (from.bit_depth - to.bit_depth); //TODO: dithering isntead of clipping
+                } else {
+                    buffer <<= (to.bit_depth - from.bit_depth);
+                }
+                int64_t sbuffer = (int64_t)(buffer - (UINT64_C(1) << (to.bit_depth - 1)));
+                memcpy(to_buf + (i * to_frame_size) + (j * (to.bit_depth / 8)), &sbuffer, to.bit_depth / 8);
+            }
+        }
+    } else if(from.channels > to.channels){
+        size_t group_size = size_t(ceil(from.channels / float(to.channels)));
+        for(size_t i = 0; i < from_num_frames; i++){
+            size_t k = 0;
+            for(size_t j = 0; j < to.channels; j++){
+                uint64_t buffer = 0, temp = 0;
+                for(size_t l = 0; l < group_size; l++){
+                    memcpy(&temp, from_buf + (i * from_frame_size) + ((k + l) * (from.bit_depth / 8)), from.bit_depth / 8);
+                    buffer = __au_mix_uint(buffer, temp);
+                }
+                k += group_size;
+
+                if(to.bit_depth < from.bit_depth){
+                    buffer >>= (from.bit_depth - to.bit_depth); //TODO: dithering isntead of clipping
+                } else {
+                    buffer <<= (to.bit_depth - from.bit_depth);
+                }
+                int64_t sbuffer = (int64_t)(buffer - (UINT64_C(1) << (to.bit_depth - 1)));
+                memcpy(to_buf + (i * to_frame_size) + (j * (to.bit_depth / 8)), &sbuffer, to.bit_depth / 8);
+            }
+        }
+    } else {
+        for(size_t i = 0; i < from_num_frames; i++){
+            for(size_t j = 0; j < to.channels; j++){
+                if(j < from.channels){ 
+                    uint64_t buffer = 0;
+                    memcpy(&buffer, from_buf + (i * from_frame_size) + (j * (from.bit_depth / 8)), from.bit_depth / 8);
+                    if(to.bit_depth < from.bit_depth){
+                        buffer >>= (from.bit_depth - to.bit_depth); //TODO: dithering isntead of clipping
+                    } else {
+                        buffer <<= (to.bit_depth - from.bit_depth);
+                    }
+                    int64_t sbuffer = (int64_t)(buffer - (UINT64_C(1) << (to.bit_depth - 1)));
+                    memcpy(to_buf + (i * to_frame_size) + (j * (to.bit_depth / 8)), &sbuffer, to_frame_size);
+                } else {
+                    memset(to_buf + (i * to_frame_size) + (j * (to.bit_depth / 8)), 0, to.bit_depth / 8);
+                }
+            }
+        }
+    }
+
     return true;
 }
 
 bool __uint_to_sfloat (auSFormat from, auSFormat to, char *from_buf,
                        size_t fromsize, char *to_buf) {
-    // scaling(TODO)
+    size_t from_frame_size = (from.bit_depth / 8) * from.channels;
+    size_t to_frame_size   = (to.bit_depth / 8) * to.channels;
+    size_t from_num_frames = fromsize / from_frame_size;
+
+    if(from.channels == to.channels){
+        for(size_t i = 0; i < from_num_frames; i++){
+            for(size_t j = 0; j < from.channels; j++){
+                uint64_t buffer = 0;
+                memcpy(&buffer, from_buf + (i * from_frame_size) + (j * (from.bit_depth / 8)), from.bit_depth / 8);
+                int64_t sbuffer = (int64_t)(buffer - (UINT64_C(1) << (to.bit_depth - 1)));
+                float   fbuffer = (float)sbuffer / (float)(UINT64_C(1) << (from.bit_depth - 1));
+                memcpy(to_buf + (i * to_frame_size) + (j * (to.bit_depth / 8)), &fbuffer, to.bit_depth / 8);
+            }
+        }
+    } else if(from.channels > to.channels){
+        size_t group_size = size_t(ceil(from.channels / float(to.channels)));
+        for(size_t i = 0; i < from_num_frames; i++){
+            size_t k = 0;
+            for(size_t j = 0; j < to.channels; j++){
+                uint64_t buffer = 0, temp = 0;
+                for(size_t l = 0; l < group_size; l++){
+                    memcpy(&temp, from_buf + (i * from_frame_size) + ((k + l) * (from.bit_depth / 8)), from.bit_depth / 8);
+                    buffer = __au_mix_uint(buffer, temp);
+                }
+                k += group_size;
+                int64_t sbuffer = (int64_t)(buffer - (UINT64_C(1) << (to.bit_depth - 1)));
+                float   fbuffer = (float)sbuffer / (float)(UINT64_C(1) << (from.bit_depth - 1));
+                memcpy(to_buf + (i * to_frame_size) + (j * (to.bit_depth / 8)), &fbuffer, to.bit_depth / 8);
+            }
+        }
+    } else {
+        for(size_t i = 0; i < from_num_frames; i++){
+            for(size_t j = 0; j < to.channels; j++){
+                if(j < from.channels){ 
+                    uint64_t buffer = 0;
+                    memcpy(&buffer, from_buf + (i * from_frame_size) + (j * (from.bit_depth / 8)), from.bit_depth / 8);
+                    int64_t sbuffer = (int64_t)(buffer - (UINT64_C(1) << (to.bit_depth - 1)));
+                    float   fbuffer = (float)sbuffer / (float)(UINT64_C(1) << (from.bit_depth - 1));
+                    memcpy(to_buf + (i * to_frame_size) + (j * (to.bit_depth / 8)), &fbuffer, to_frame_size);
+                } else {
+                    memset(to_buf + (i * to_frame_size) + (j * (to.bit_depth / 8)), 0, to.bit_depth / 8);
+                }
+            }
+        }
+    }
     return true;
 }
 

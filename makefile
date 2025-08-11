@@ -3,7 +3,7 @@ LD := clang++
 
 VERSION := $(shell git rev-parse --short HEAD)
 
-DEBUG_CXXFLAGS = -g -Wall -Wextra -Werror -Wno-error=unused-parameter -fsanitize=address -fsanitize=undefined 
+DEBUG_CXXFLAGS = -g -Wall -Wextra -Werror -Wno-error=unused-parameter -Wno-error=unused-variable -fsanitize=address -fsanitize=undefined 
 DEBUG_LDFLAGS  = -g -fsanitize=address -fsanitize=undefined
 
 CXXFLAGS := -std=c++20 -I../../${BUILD_DIR}/${LIB_DIR}/include -DVERSION='"${VERSION}"' -I ../include $(DEBUG_CXXFLAGS)

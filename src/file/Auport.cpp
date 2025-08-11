@@ -111,6 +111,7 @@ auFileReader::auFileReader (std::filesystem::path _path,
             file.seekg (fmt_size - 16, std::ios::cur);
         }
 
+        // this is not guaranteed for formats like ADPCM
         //if (bytes_per_sec
         //    != (sample_rate * num_channels * bits_per_sample) / 8) {
         //    spdlog::error ("\"{}\" is corrupted(invalid bytes_per_sec)!",
@@ -118,7 +119,6 @@ auFileReader::auFileReader (std::filesystem::path _path,
         //    error = true;
         //    return;
         //}
-//
         //if (block_size != (num_channels * bits_per_sample) / 8) {
         //    spdlog::error ("\"{}\" is corrupted(invalid block_size)!",
         //                   path.string ());
