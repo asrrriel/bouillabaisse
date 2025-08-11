@@ -175,7 +175,7 @@ bool __uint_to_sint (auSFormat from, auSFormat to, char *from_buf,
                 } else {
                     buffer <<= (to.bit_depth - from.bit_depth);
                 }
-                int64_t sbuffer = (int64_t)(buffer - (UINT64_C(1) << (to.bit_depth - 1)));
+                int64_t sbuffer = (int64_t)(buffer - (UINT64_C(1) << (from.bit_depth - 1)));
                 memcpy(to_buf + (i * to_frame_size) + (j * (to.bit_depth / 8)), &sbuffer, to.bit_depth / 8);
             }
         }
@@ -196,7 +196,7 @@ bool __uint_to_sint (auSFormat from, auSFormat to, char *from_buf,
                 } else {
                     buffer <<= (to.bit_depth - from.bit_depth);
                 }
-                int64_t sbuffer = (int64_t)(buffer - (UINT64_C(1) << (to.bit_depth - 1)));
+                int64_t sbuffer = (int64_t)(buffer - (UINT64_C(1) << (from.bit_depth - 1)));
                 memcpy(to_buf + (i * to_frame_size) + (j * (to.bit_depth / 8)), &sbuffer, to.bit_depth / 8);
             }
         }
@@ -211,7 +211,7 @@ bool __uint_to_sint (auSFormat from, auSFormat to, char *from_buf,
                     } else {
                         buffer <<= (to.bit_depth - from.bit_depth);
                     }
-                    int64_t sbuffer = (int64_t)(buffer - (UINT64_C(1) << (to.bit_depth - 1)));
+                    int64_t sbuffer = (int64_t)(buffer - (UINT64_C(1) << (from.bit_depth - 1)));
                     memcpy(to_buf + (i * to_frame_size) + (j * (to.bit_depth / 8)), &sbuffer, to_frame_size);
                 } else {
                     memset(to_buf + (i * to_frame_size) + (j * (to.bit_depth / 8)), 0, to.bit_depth / 8);
@@ -234,7 +234,7 @@ bool __uint_to_sfloat (auSFormat from, auSFormat to, char *from_buf,
             for(size_t j = 0; j < from.channels; j++){
                 uint64_t buffer = 0;
                 memcpy(&buffer, from_buf + (i * from_frame_size) + (j * (from.bit_depth / 8)), from.bit_depth / 8);
-                int64_t sbuffer = (int64_t)(buffer - (UINT64_C(1) << (to.bit_depth - 1)));
+                int64_t sbuffer = (int64_t)(buffer - (UINT64_C(1) << (from.bit_depth - 1)));
                 float   fbuffer = (float)sbuffer / (float)(UINT64_C(1) << (from.bit_depth - 1));
                 memcpy(to_buf + (i * to_frame_size) + (j * (to.bit_depth / 8)), &fbuffer, to.bit_depth / 8);
             }
@@ -250,7 +250,7 @@ bool __uint_to_sfloat (auSFormat from, auSFormat to, char *from_buf,
                     buffer = __au_mix_uint(buffer, temp);
                 }
                 k += group_size;
-                int64_t sbuffer = (int64_t)(buffer - (UINT64_C(1) << (to.bit_depth - 1)));
+                int64_t sbuffer = (int64_t)(buffer - (UINT64_C(1) << (from.bit_depth - 1)));
                 float   fbuffer = (float)sbuffer / (float)(UINT64_C(1) << (from.bit_depth - 1));
                 memcpy(to_buf + (i * to_frame_size) + (j * (to.bit_depth / 8)), &fbuffer, to.bit_depth / 8);
             }
@@ -261,9 +261,9 @@ bool __uint_to_sfloat (auSFormat from, auSFormat to, char *from_buf,
                 if(j < from.channels){ 
                     uint64_t buffer = 0;
                     memcpy(&buffer, from_buf + (i * from_frame_size) + (j * (from.bit_depth / 8)), from.bit_depth / 8);
-                    int64_t sbuffer = (int64_t)(buffer - (UINT64_C(1) << (to.bit_depth - 1)));
+                    int64_t sbuffer = (int64_t)(buffer - (UINT64_C(1) << (from.bit_depth - 1)));
                     float   fbuffer = (float)sbuffer / (float)(UINT64_C(1) << (from.bit_depth - 1));
-                    memcpy(to_buf + (i * to_frame_size) + (j * (to.bit_depth / 8)), &fbuffer, to_frame_size);
+                    memcpy(to_buf + (i * to_frame_size) + (j * (to.bit_depth / 8)), &fbuffer, to.bit_depth / 8);
                 } else {
                     memset(to_buf + (i * to_frame_size) + (j * (to.bit_depth / 8)), 0, to.bit_depth / 8);
                 }

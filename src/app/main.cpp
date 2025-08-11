@@ -90,6 +90,7 @@ int main (int argc, char *argv[]) {
     //                / (s_format.channels * (s_format.bit_depth) / 8));
 
     delete[] buffer;
+    delete[] buffer2;
 
     return 0;
 }
