@@ -19,7 +19,7 @@ auDtype fmt_type_to_dtype (uint16_t fmt_type, uint16_t bit_depth) {
         return auDtype::uALaw;
     case 7:
         return auDtype::uMuLaw;
-    case 17:     
+    case 17:
         return auDtype::uDviAdpcm;
     case 0xFFFE: // TODO: support some extensible ones
     default:
@@ -112,14 +112,14 @@ auFileReader::auFileReader (std::filesystem::path _path,
         }
 
         // this is not guaranteed for formats like ADPCM
-        //if (bytes_per_sec
+        // if (bytes_per_sec
         //    != (sample_rate * num_channels * bits_per_sample) / 8) {
         //    spdlog::error ("\"{}\" is corrupted(invalid bytes_per_sec)!",
         //                   path.string ());
         //    error = true;
         //    return;
         //}
-        //if (block_size != (num_channels * bits_per_sample) / 8) {
+        // if (block_size != (num_channels * bits_per_sample) / 8) {
         //    spdlog::error ("\"{}\" is corrupted(invalid block_size)!",
         //                   path.string ());
         //    error = true;
