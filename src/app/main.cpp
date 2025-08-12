@@ -53,7 +53,7 @@ int main (int argc, char *argv[]) {
     snd_pcm_t *speaker_handle = nullptr;
 
     auSFormat n_format
-        = auSFormat (s_format.sample_rate, 32, 2, auDtype::sFloat);
+        = auSFormat (s_format.sample_rate, 8, 1, auDtype::uMuLaw);
 
     if (!n_format.verify ()) { return 1; }
 

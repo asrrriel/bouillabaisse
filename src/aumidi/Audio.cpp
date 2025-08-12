@@ -79,15 +79,74 @@ bool auSFormat::verify () {
     return true;
 }
 
+int64_t __u_to_s (uint64_t u, uint8_t bit_depth) {
+    return (int64_t)((u ^ (UINT64_C (1) << (bit_depth - 1)))
+                     - (UINT64_C (1) << (bit_depth - 1)));
+}
+
+uint64_t __s_to_u (int64_t s, uint8_t bit_depth) {
+    return (uint64_t)((s + (UINT64_C (1) << (bit_depth - 1)))
+                      ^ (UINT64_C (1) << (bit_depth - 1)));
+}
+
+float __s_to_f (int64_t s, uint8_t bit_depth) {
+    return (float)s / (float)(UINT64_C (1) << (bit_depth - 1));
+}
+
+int64_t __f_to_s (float f, uint8_t bit_depth) {
+    return (int64_t)(f * (float)(UINT64_C (1) << (bit_depth - 1)));
+}
+
+uint8_t __u_to_ulaw (uint64_t u, uint8_t bit_depth) {
+    const uint16_t BIAS = 0x84;
+
+    int64_t u_s = __u_to_s (u, bit_depth);
+
+    int64_t magnitude = std::abs (u_s);
+
+    if (magnitude < BIAS) magnitude = BIAS;
+
+    uint8_t segment = std::log2 (magnitude / BIAS);
+    if (segment > 7) segment = 7;
+
+    uint8_t quantization = (magnitude >> (segment + 3)) & 0x0F;
+
+    return ((segment << 4) | quantization) ^ ((u_s < 0) ? 0x7F : 0xFF);
+}
+
+uint64_t __ulaw_to_u (uint8_t ulaw, uint8_t bit_depth) {
+    const uint16_t BIAS = 0x84;
+
+    uint8_t real_bits = ulaw ^ 0xFF; // ulaw is inverted fsr
+
+    bool    sign        = (real_bits & 0x80) >> 7;
+    uint8_t segment     = (real_bits & 0x70) >> 4;
+    uint8_t quanization = real_bits & 0x0F;
+    printf ("sign: %u,segment: %u,quant: %u\n", sign, segment, quanization);
+
+    uint16_t magnitude = ((quanization << 3) + BIAS) << segment;
+
+    int16_t pcm_val = sign ? -magnitude : magnitude;
+
+    return __s_to_u (pcm_val, bit_depth);
+}
+
 double __au_mix_float (double a, double b) { return (a + b) / 2; }
 
-uint32_t __au_mix_uint (uint32_t a, uint32_t b) {
-    return (uint32_t)(__au_mix_float (a / double (UINT32_MAX),
-                                      b / double (UINT32_MAX))
-                      * double (UINT32_MAX));
+uint64_t __au_mix_uint (uint64_t a, uint64_t b, uint8_t bit_depth) {
+    int64_t a_s   = __u_to_s (a, bit_depth);
+    int64_t b_s   = __u_to_s (b, bit_depth);
+    double  a_f   = __s_to_f (a_s, bit_depth);
+    double  b_f   = __s_to_f (b_s, bit_depth);
+    double  mixed = __au_mix_float (a_f, b_f);
+    return __s_to_u (__f_to_s (mixed, bit_depth), bit_depth);
 }
 
 size_t au_convert_buffer_size (auSFormat from, auSFormat to, size_t size) {
+    if (from.sample_rate != to.sample_rate) {
+        spdlog::error ("unimplemented: upsampling/downsampling");
+        return 0;
+    }
     if (!from.verify () || !to.verify ()) { return 0; }
     return (size_t)(float (size) * (float (to.bit_depth) * float (to.channels))
                     / (float (from.bit_depth) * float (from.channels)));
@@ -136,7 +195,7 @@ bool __uint_to_uint (auSFormat from, auSFormat to, char *from_buf,
                             from_buf + (i * from_frame_size)
                                 + ((k + l) * (from.bit_depth / 8)),
                             from.bit_depth / 8);
-                    buffer = __au_mix_uint (buffer, temp);
+                    buffer = __au_mix_uint (buffer, temp, from.bit_depth);
                 }
                 k += group_size;
 
@@ -204,10 +263,7 @@ bool __uint_to_sint (auSFormat from, auSFormat to, char *from_buf,
                 } else {
                     buffer <<= (to.bit_depth - from.bit_depth);
                 }
-                int64_t sbuffer
-                    = (int64_t)(buffer
-                                ^ (UINT64_C (1) << (from.bit_depth - 1)))
-                    - (int64_t)(UINT64_C (1) << (from.bit_depth - 1));
+                int64_t sbuffer = __u_to_s (buffer, from.bit_depth);
                 memcpy (to_buf + (i * to_frame_size)
                             + (j * (to.bit_depth / 8)),
                         &sbuffer, to.bit_depth / 8);
@@ -225,7 +281,7 @@ bool __uint_to_sint (auSFormat from, auSFormat to, char *from_buf,
                             from_buf + (i * from_frame_size)
                                 + ((k + l) * (from.bit_depth / 8)),
                             from.bit_depth / 8);
-                    buffer = __au_mix_uint (buffer, temp);
+                    buffer = __au_mix_uint (buffer, temp, from.bit_depth);
                 }
                 k += group_size;
 
@@ -236,10 +292,7 @@ bool __uint_to_sint (auSFormat from, auSFormat to, char *from_buf,
                 } else {
                     buffer <<= (to.bit_depth - from.bit_depth);
                 }
-                int64_t sbuffer
-                    = (int64_t)(buffer
-                                ^ (UINT64_C (1) << (from.bit_depth - 1)))
-                    - (int64_t)(UINT64_C (1) << (from.bit_depth - 1));
+                int64_t sbuffer = __u_to_s (buffer, from.bit_depth);
                 memcpy (to_buf + (i * to_frame_size)
                             + (j * (to.bit_depth / 8)),
                         &sbuffer, to.bit_depth / 8);
@@ -261,10 +314,7 @@ bool __uint_to_sint (auSFormat from, auSFormat to, char *from_buf,
                     } else {
                         buffer <<= (to.bit_depth - from.bit_depth);
                     }
-                    int64_t sbuffer
-                        = (int64_t)(buffer
-                                    ^ (UINT64_C (1) << (from.bit_depth - 1)))
-                        - (int64_t)(UINT64_C (1) << (from.bit_depth - 1));
+                    int64_t sbuffer = __u_to_s (buffer, from.bit_depth);
                     memcpy (to_buf + (i * to_frame_size)
                                 + (j * (to.bit_depth / 8)),
                             &sbuffer, to_frame_size);
@@ -301,12 +351,8 @@ bool __uint_to_sfloat (auSFormat from, auSFormat to, char *from_buf,
                 } else {
                     buffer <<= (to.bit_depth - from.bit_depth);
                 }
-                int64_t sbuffer
-                    = (int64_t)(buffer
-                                ^ (UINT64_C (1) << (from.bit_depth - 1)))
-                    - (int64_t)(UINT64_C (1) << (from.bit_depth - 1));
-                float fbuffer = (float)sbuffer
-                              / (float)(UINT64_C (1) << (from.bit_depth - 1));
+                int64_t sbuffer = __u_to_s (buffer, from.bit_depth);
+                float   fbuffer = __s_to_f (sbuffer, to.bit_depth);
                 memcpy (to_buf + (i * to_frame_size)
                             + (j * (to.bit_depth / 8)),
                         &fbuffer, to.bit_depth / 8);
@@ -324,7 +370,7 @@ bool __uint_to_sfloat (auSFormat from, auSFormat to, char *from_buf,
                             from_buf + (i * from_frame_size)
                                 + ((k + l) * (from.bit_depth / 8)),
                             from.bit_depth / 8);
-                    buffer = __au_mix_uint (buffer, temp);
+                    buffer = __au_mix_uint (buffer, temp, from.bit_depth);
                 }
                 k += group_size;
                 if (to.bit_depth < from.bit_depth) {
@@ -334,12 +380,10 @@ bool __uint_to_sfloat (auSFormat from, auSFormat to, char *from_buf,
                 } else {
                     buffer <<= (to.bit_depth - from.bit_depth);
                 }
-                int64_t sbuffer
-                    = (int64_t)(buffer
-                                ^ (UINT64_C (1) << (from.bit_depth - 1)))
-                    - (int64_t)(UINT64_C (1) << (from.bit_depth - 1));
-                float fbuffer = (float)sbuffer
-                              / (float)(UINT64_C (1) << (from.bit_depth - 1));
+                int64_t sbuffer = __u_to_s (buffer, from.bit_depth);
+                float   fbuffer = __s_to_f (sbuffer, to.bit_depth);
+                // spdlog::info("buffer: {} sbuffer: {} fbuffer: {}", buffer,
+                // sbuffer, fbuffer);
                 memcpy (to_buf + (i * to_frame_size)
                             + (j * (to.bit_depth / 8)),
                         &fbuffer, to.bit_depth / 8);
@@ -361,13 +405,8 @@ bool __uint_to_sfloat (auSFormat from, auSFormat to, char *from_buf,
                     } else {
                         buffer <<= (to.bit_depth - from.bit_depth);
                     }
-                    int64_t sbuffer
-                        = (int64_t)(buffer
-                                    ^ (UINT64_C (1) << (from.bit_depth - 1)))
-                        - (int64_t)(UINT64_C (1) << (from.bit_depth - 1));
-                    float fbuffer
-                        = (float)sbuffer
-                        / (float)(UINT64_C (1) << (from.bit_depth - 1));
+                    int64_t sbuffer = __u_to_s (buffer, from.bit_depth);
+                    float   fbuffer = __s_to_f (sbuffer, to.bit_depth);
                     memcpy (to_buf + (i * to_frame_size)
                                 + (j * (to.bit_depth / 8)),
                             &fbuffer, to.bit_depth / 8);
@@ -384,7 +423,92 @@ bool __uint_to_sfloat (auSFormat from, auSFormat to, char *from_buf,
 
 bool __uint_to_sdouble (auSFormat from, auSFormat to, char *from_buf,
                         size_t fromsize, char *to_buf) {
-    // more scaling(TODO)
+    size_t from_frame_size = (from.bit_depth / 8) * from.channels;
+    size_t to_frame_size   = (to.bit_depth / 8) * to.channels;
+    size_t from_num_frames = fromsize / from_frame_size;
+
+    if (from.channels == to.channels) {
+        for (size_t i = 0; i < from_num_frames; i++) {
+            for (size_t j = 0; j < from.channels; j++) {
+                uint64_t buffer = 0;
+                memcpy (&buffer,
+                        from_buf + (i * from_frame_size)
+                            + (j * (from.bit_depth / 8)),
+                        from.bit_depth / 8);
+                if (to.bit_depth < from.bit_depth) {
+                    buffer >>= (from.bit_depth
+                                - to.bit_depth); // TODO: dithering isntead of
+                                                 // clipping
+                } else {
+                    buffer <<= (to.bit_depth - from.bit_depth);
+                }
+                int64_t sbuffer = __u_to_s (buffer, from.bit_depth);
+                double  fbuffer = __s_to_f (sbuffer, to.bit_depth);
+                memcpy (to_buf + (i * to_frame_size)
+                            + (j * (to.bit_depth / 8)),
+                        &fbuffer, to.bit_depth / 8);
+            }
+        }
+    } else if (from.channels > to.channels) {
+        size_t group_size
+            = size_t (ceil (from.channels / float (to.channels)));
+        for (size_t i = 0; i < from_num_frames; i++) {
+            size_t k = 0;
+            for (size_t j = 0; j < to.channels; j++) {
+                uint64_t buffer = 0, temp = 0;
+                for (size_t l = 0; l < group_size; l++) {
+                    memcpy (&temp,
+                            from_buf + (i * from_frame_size)
+                                + ((k + l) * (from.bit_depth / 8)),
+                            from.bit_depth / 8);
+                    buffer = __au_mix_uint (buffer, temp, from.bit_depth);
+                }
+                k += group_size;
+                if (to.bit_depth < from.bit_depth) {
+                    buffer >>= (from.bit_depth
+                                - to.bit_depth); // TODO: dithering isntead of
+                                                 // clipping
+                } else {
+                    buffer <<= (to.bit_depth - from.bit_depth);
+                }
+                int64_t sbuffer = __u_to_s (buffer, from.bit_depth);
+                double  fbuffer = __s_to_f (sbuffer, to.bit_depth);
+                // spdlog::info("buffer: {} sbuffer: {} fbuffer: {}", buffer,
+                // sbuffer, fbuffer);
+                memcpy (to_buf + (i * to_frame_size)
+                            + (j * (to.bit_depth / 8)),
+                        &fbuffer, to.bit_depth / 8);
+            }
+        }
+    } else {
+        for (size_t i = 0; i < from_num_frames; i++) {
+            for (size_t j = 0; j < to.channels; j++) {
+                if (j < from.channels) {
+                    uint64_t buffer = 0;
+                    memcpy (&buffer,
+                            from_buf + (i * from_frame_size)
+                                + (j * (from.bit_depth / 8)),
+                            from.bit_depth / 8);
+                    if (to.bit_depth < from.bit_depth) {
+                        buffer >>= (from.bit_depth
+                                    - to.bit_depth); // TODO: dithering isntead
+                                                     // of clipping
+                    } else {
+                        buffer <<= (to.bit_depth - from.bit_depth);
+                    }
+                    int64_t sbuffer = __u_to_s (buffer, from.bit_depth);
+                    double  fbuffer = __s_to_f (sbuffer, to.bit_depth);
+                    memcpy (to_buf + (i * to_frame_size)
+                                + (j * (to.bit_depth / 8)),
+                            &fbuffer, to.bit_depth / 8);
+                } else {
+                    memset (to_buf + (i * to_frame_size)
+                                + (j * (to.bit_depth / 8)),
+                            0, to.bit_depth / 8);
+                }
+            }
+        }
+    }
     return true;
 }
 
@@ -396,7 +520,87 @@ bool __uint_to_ualaw (auSFormat from, auSFormat to, char *from_buf,
 
 bool __uint_to_umulaw (auSFormat from, auSFormat to, char *from_buf,
                        size_t fromsize, char *to_buf) {
-    // h a r d(TODO)
+    size_t from_frame_size = (from.bit_depth / 8) * from.channels;
+    size_t to_frame_size   = (to.bit_depth / 8) * to.channels;
+    size_t from_num_frames = fromsize / from_frame_size;
+
+    if (from.channels == to.channels) {
+        for (size_t i = 0; i < from_num_frames; i++) {
+            for (size_t j = 0; j < from.channels; j++) {
+                uint64_t buffer = 0;
+                memcpy (&buffer,
+                        from_buf + (i * from_frame_size)
+                            + (j * (from.bit_depth / 8)),
+                        from.bit_depth / 8);
+                if (to.bit_depth < from.bit_depth) {
+                    buffer >>= (from.bit_depth
+                                - to.bit_depth); // TODO: dithering isntead of
+                                                 // clipping
+                } else {
+                    buffer <<= (to.bit_depth - from.bit_depth);
+                }
+                uint8_t ulaw = __u_to_ulaw (buffer, from.bit_depth);
+                memcpy (to_buf + (i * to_frame_size)
+                            + (j * (to.bit_depth / 8)),
+                        &ulaw, to.bit_depth / 8);
+            }
+        }
+    } else if (from.channels > to.channels) {
+        size_t group_size
+            = size_t (ceil (from.channels / float (to.channels)));
+        for (size_t i = 0; i < from_num_frames; i++) {
+            size_t k = 0;
+            for (size_t j = 0; j < to.channels; j++) {
+                uint64_t buffer = 0, temp = 0;
+                for (size_t l = 0; l < group_size; l++) {
+                    memcpy (&temp,
+                            from_buf + (i * from_frame_size)
+                                + ((k + l) * (from.bit_depth / 8)),
+                            from.bit_depth / 8);
+                    buffer = __au_mix_uint (buffer, temp, from.bit_depth);
+                }
+                k += group_size;
+                if (to.bit_depth < from.bit_depth) {
+                    buffer >>= (from.bit_depth
+                                - to.bit_depth); // TODO: dithering isntead of
+                                                 // clipping
+                } else {
+                    buffer <<= (to.bit_depth - from.bit_depth);
+                }
+                uint8_t ulaw = __u_to_ulaw (buffer, from.bit_depth);
+                memcpy (to_buf + (i * to_frame_size)
+                            + (j * (to.bit_depth / 8)),
+                        &ulaw, to.bit_depth / 8);
+            }
+        }
+    } else {
+        for (size_t i = 0; i < from_num_frames; i++) {
+            for (size_t j = 0; j < to.channels; j++) {
+                if (j < from.channels) {
+                    uint64_t buffer = 0;
+                    memcpy (&buffer,
+                            from_buf + (i * from_frame_size)
+                                + (j * (from.bit_depth / 8)),
+                            from.bit_depth / 8);
+                    if (to.bit_depth < from.bit_depth) {
+                        buffer >>= (from.bit_depth
+                                    - to.bit_depth); // TODO: dithering isntead
+                                                     // of clipping
+                    } else {
+                        buffer <<= (to.bit_depth - from.bit_depth);
+                    }
+                    uint8_t ulaw = __u_to_ulaw (buffer, from.bit_depth);
+                    memcpy (to_buf + (i * to_frame_size)
+                                + (j * (to.bit_depth / 8)),
+                            &ulaw, to.bit_depth / 8);
+                } else {
+                    memset (to_buf + (i * to_frame_size)
+                                + (j * (to.bit_depth / 8)),
+                            0, to.bit_depth / 8);
+                }
+            }
+        }
+    }
     return true;
 }
 
@@ -848,6 +1052,10 @@ au_convert_func au_convert_call_table[8][8] = {
 
 bool au_convert_buffer (auSFormat from, auSFormat to, char *from_buf,
                         size_t fromsize, char *to_buf) {
+    if (from.sample_rate != to.sample_rate) {
+        spdlog::error ("unimplemented: upsampling/downsampling");
+        return 0;
+    }
     if (!from.verify () || !to.verify ()) { return false; }
     return au_convert_call_table[(int32_t)from.data_type]
                                 [(int32_t)to.data_type](from, to, from_buf,
