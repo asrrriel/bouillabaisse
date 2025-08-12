@@ -103,11 +103,10 @@ uint8_t __u_to_ulaw (uint64_t u, uint8_t bit_depth) {
     int64_t u_s = __u_to_s (u, bit_depth);
 
     int64_t magnitude = std::abs (u_s);
-
     if (magnitude < BIAS) magnitude = BIAS;
 
     uint8_t segment = std::log2 (magnitude / BIAS);
-    if (segment > 7) segment = 7;
+    segment &= 0x7;
 
     uint8_t quantization = (magnitude >> (segment + 3)) & 0x0F;
 
